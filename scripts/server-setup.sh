@@ -62,7 +62,7 @@ echo "[ok] Created $APP_DIR"
 # ---------------------------------------------------------------
 # 4. Create environment file
 # ---------------------------------------------------------------
-ENV_FILE="/usr/local/bin/alien-env"
+ENV_FILE="$APP_DIR/.env"
 
 if [ ! -f "$ENV_FILE" ]; then
     cat > "$ENV_FILE" << 'ENV'
@@ -89,7 +89,7 @@ Type=simple
 User=www-data
 Group=www-data
 WorkingDirectory=/var/www/alien
-EnvironmentFile=/usr/local/bin/alien-env
+EnvironmentFile=/var/www/alien/.env
 ExecStart=/var/www/alien/alien
 Restart=always
 RestartSec=5
