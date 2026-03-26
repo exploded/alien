@@ -60,19 +60,27 @@ var (
 func main() {
 	mime.AddExtensionType(".webp", "image/webp")
 
-	ship := logship.New(logship.Options{
-		Endpoint: "https://monitor.mchugh.au/api/logs",
-		APIKey:   os.Getenv("LOG_API_KEY"),
-		App:      "alien",
-		Level:    slog.LevelWarn,
-	})
-	defer ship.Shutdown()
+	var ship *logship.Handler
+	monitorURL := os.Getenv("MONITOR_URL")
+	monitorKey := os.Getenv("MONITOR_API_KEY")
 
-	logger := slog.New(logship.Multi(
-		slog.NewTextHandler(os.Stderr, nil),
-		ship,
-	))
-	slog.SetDefault(logger)
+	if monitorURL != "" && monitorKey != "" {
+		ship = logship.New(logship.Options{
+			Endpoint: monitorURL + "/api/logs",
+			APIKey:   monitorKey,
+			App:      "alien",
+			Level:    slog.LevelWarn,
+		})
+		defer ship.Shutdown()
+
+		logger := slog.New(logship.Multi(
+			slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}),
+			ship,
+		))
+		slog.SetDefault(logger)
+	} else {
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
+	}
 
 	isProd = os.Getenv("PROD") == "True"
 

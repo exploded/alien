@@ -68,10 +68,11 @@ if [ ! -f "$ENV_FILE" ]; then
     cat > "$ENV_FILE" << 'ENV'
 PORT=8787
 PROD=True
-LOG_API_KEY=
+MONITOR_URL=
+MONITOR_API_KEY=
 ENV
     chmod 600 "$ENV_FILE"
-    echo "[ok] Created $ENV_FILE (edit to add LOG_API_KEY)"
+    echo "[ok] Created $ENV_FILE (edit to set MONITOR_URL and MONITOR_API_KEY)"
 else
     echo "[ok] $ENV_FILE already exists — not overwriting"
 fi
@@ -212,7 +213,7 @@ echo "1. Upload your alien.db database to $APP_DIR/:"
 echo "   scp alien.db deploy@$(hostname -I | awk '{print $1}'):/tmp/"
 echo "   sudo cp /tmp/alien.db $APP_DIR/ && sudo chown www-data:www-data $APP_DIR/alien.db"
 echo ""
-echo "2. Edit $ENV_FILE to set LOG_API_KEY (optional)"
+echo "2. Edit $ENV_FILE to set MONITOR_URL and MONITOR_API_KEY (optional)"
 echo ""
 echo "3. Add these secrets to your GitHub repository:"
 echo "   Go to: GitHub repo → Settings → Secrets and variables → Actions"

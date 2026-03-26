@@ -94,4 +94,5 @@ HTMX (`hx-boost="true"` on body) provides smooth page transitions without full r
 | Variable | Required | Description |
 |---|---|---|
 | `PORT` | No | HTTP listen port (default 8787) |
-| `LOG_API_KEY` | No | API key for remote log shipping |
+| `MONITOR_URL` | No | Monitor portal base URL for log shipping |
+| `MONITOR_API_KEY` | No | API key for monitor portal auth |
