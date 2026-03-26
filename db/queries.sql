@@ -16,8 +16,7 @@ UPDATE question SET no = no + 1 WHERE id = ?;
 SELECT short, yes, no FROM question WHERE id = ?;
 
 -- name: InsertAnswer :exec
-INSERT INTO answer (question, answer, submitter, submitteragent)
-VALUES (?, ?, ?, ?);
+INSERT INTO answer (question, answer) VALUES (?, ?);
 
 -- name: CountAnswers :one
 SELECT count(*) FROM answer;

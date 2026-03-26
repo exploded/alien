@@ -5,12 +5,10 @@
 package db
 
 type Answer struct {
-	ID             int64
-	Question       int64
-	Answer         int64
-	Submitter      string
-	Submitdate     string
-	Submitteragent string
+	ID         int64
+	Question   int64
+	Answer     int64
+	Submitdate string
 }
 
 type Question struct {

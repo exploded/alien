@@ -116,23 +116,15 @@ func (q *Queries) IncrementYes(ctx context.Context, id int64) error {
 }
 
 const insertAnswer = `-- name: InsertAnswer :exec
-INSERT INTO answer (question, answer, submitter, submitteragent)
-VALUES (?, ?, ?, ?)
+INSERT INTO answer (question, answer) VALUES (?, ?)
 `
 
 type InsertAnswerParams struct {
-	Question       int64
-	Answer         int64
-	Submitter      string
-	Submitteragent string
+	Question int64
+	Answer   int64
 }
 
 func (q *Queries) InsertAnswer(ctx context.Context, arg InsertAnswerParams) error {
-	_, err := q.db.ExecContext(ctx, insertAnswer,
-		arg.Question,
-		arg.Answer,
-		arg.Submitter,
-		arg.Submitteragent,
-	)
+	_, err := q.db.ExecContext(ctx, insertAnswer, arg.Question, arg.Answer)
 	return err
 }

@@ -18,6 +18,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	crand "crypto/rand"
 	"crypto/subtle"
 	"database/sql"
@@ -26,12 +27,16 @@ import (
 	"errors"
 	"html/template"
 	"log/slog"
+	"mime"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"alien/db"
@@ -44,13 +49,16 @@ import (
 var schemaSQL string
 
 var (
+	sqlDB        *sql.DB
 	queries      *db.Queries
 	tmplQuestion *template.Template
 	tmplIntro    *template.Template
 	tmplAbout    *template.Template
+	isProd       bool
 )
 
 func main() {
+	mime.AddExtensionType(".webp", "image/webp")
 
 	ship := logship.New(logship.Options{
 		Endpoint: "https://monitor.mchugh.au/api/logs",
@@ -66,20 +74,35 @@ func main() {
 	))
 	slog.SetDefault(logger)
 
-	sqlDB, err := sql.Open("sqlite", "alien.db")
+	isProd = os.Getenv("PROD") == "True"
+
+	var err error
+	sqlDB, err = sql.Open("sqlite", "alien.db")
 	if err != nil {
 		slog.Error("could not open database", "err", err)
 		os.Exit(1)
 	}
 	defer sqlDB.Close()
 
-	sqlDB.Exec("PRAGMA journal_mode=WAL")
-	sqlDB.Exec("PRAGMA foreign_keys=ON")
+	if _, err := sqlDB.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		slog.Error("could not set WAL mode", "err", err)
+		os.Exit(1)
+	}
+	if _, err := sqlDB.Exec("PRAGMA foreign_keys=ON"); err != nil {
+		slog.Error("could not enable foreign keys", "err", err)
+		os.Exit(1)
+	}
 
 	if _, err := sqlDB.Exec(schemaSQL); err != nil {
 		slog.Error("could not create schema", "err", err)
 		os.Exit(1)
 	}
+
+	// Migration: drop PII columns from answer table (if they still exist).
+	// VACUUM reclaims disk space after the drops.
+	sqlDB.Exec("ALTER TABLE answer DROP COLUMN submitter")
+	sqlDB.Exec("ALTER TABLE answer DROP COLUMN submitteragent")
+	sqlDB.Exec("VACUUM")
 
 	queries = db.New(sqlDB)
 	slog.Info("database connected")
@@ -101,27 +124,68 @@ func main() {
 	}
 
 	slog.Info("starting", "path", path, "port", port)
-	http.HandleFunc("/", siteroot)
-	http.HandleFunc("/about", about)
-	http.HandleFunc("/intro", intro)
-	http.HandleFunc("/robots.txt", robots)
-	http.Handle("/css/", http.StripPrefix("/css/", http.FileServer(http.Dir(filepath.Join(path, "css")))))
-	http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir(filepath.Join(path, "images")))))
-	http.HandleFunc("/favicon.png", func(w http.ResponseWriter, r *http.Request) {
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", siteroot)
+	mux.HandleFunc("/about", about)
+	mux.HandleFunc("/intro", intro)
+	mux.HandleFunc("/robots.txt", robots)
+	mux.Handle("/css/", http.StripPrefix("/css/", noDirListing(http.FileServer(http.Dir(filepath.Join(path, "css"))))))
+	mux.Handle("/images/", http.StripPrefix("/images/", noDirListing(http.FileServer(http.Dir(filepath.Join(path, "images"))))))
+	mux.HandleFunc("/favicon.png", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, filepath.Join(path, "images", "favicon.png"))
 	})
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(filepath.Join(path, "static")))))
+	mux.Handle("/static/", http.StripPrefix("/static/", noDirListing(http.FileServer(http.Dir(filepath.Join(path, "static"))))))
+
 	server := &http.Server{
 		Addr:         ":" + port,
-		Handler:      nil,
+		Handler:      securityHeaders(mux),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
-	if err := server.ListenAndServe(); err != nil {
-		slog.Error("server stopped", "err", err)
-		os.Exit(1)
+
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("server stopped", "err", err)
+			os.Exit(1)
+		}
+	}()
+
+	slog.Info("server started", "port", port)
+	<-done
+	slog.Info("shutting down")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		slog.Error("shutdown error", "err", err)
 	}
+}
+
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		if isProd {
+			w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func noDirListing(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/") || r.URL.Path == "" {
+			http.NotFound(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func about(w http.ResponseWriter, r *http.Request) {
@@ -214,6 +278,8 @@ func siteroot(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Too many requests", http.StatusTooManyRequests)
 			return
 		}
+
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		if err := r.ParseForm(); err != nil {
 			slog.Warn("form parse failed", "err", err)
 			http.Error(w, "Invalid form", http.StatusBadRequest)
@@ -243,25 +309,42 @@ func siteroot(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		tx, err := sqlDB.BeginTx(r.Context(), nil)
+		if err != nil {
+			slog.Error("begin tx failed", "err", err)
+			http.Error(w, "Unable to process vote", http.StatusInternalServerError)
+			return
+		}
+		defer tx.Rollback()
+
+		qtx := db.New(tx)
 		answerBit := int64(0)
 		if answer == "yes" {
 			answerBit = 1
-			err = queries.IncrementYes(r.Context(), idold)
+			err = qtx.IncrementYes(r.Context(), idold)
 		} else {
-			err = queries.IncrementNo(r.Context(), idold)
+			err = qtx.IncrementNo(r.Context(), idold)
 		}
 		if err != nil {
 			slog.Error("vote update failed", "err", err, "question", idold)
+			http.Error(w, "Unable to process vote", http.StatusInternalServerError)
+			return
 		}
 
-		err = queries.InsertAnswer(r.Context(), db.InsertAnswerParams{
-			Question:       idold,
-			Answer:         answerBit,
-			Submitter:      r.RemoteAddr,
-			Submitteragent: r.Header.Get("User-Agent"),
+		err = qtx.InsertAnswer(r.Context(), db.InsertAnswerParams{
+			Question: idold,
+			Answer:   answerBit,
 		})
 		if err != nil {
 			slog.Error("vote insert failed", "err", err, "question", idold)
+			http.Error(w, "Unable to process vote", http.StatusInternalServerError)
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			slog.Error("commit failed", "err", err, "question", idold)
+			http.Error(w, "Unable to process vote", http.StatusInternalServerError)
+			return
 		}
 
 		stats, err := queries.GetQuestionStats(r.Context(), idold)
@@ -358,7 +441,7 @@ func setCSRFCookie(w http.ResponseWriter, r *http.Request, token string) {
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   r.TLS != nil,
+		Secure:   r.TLS != nil || isProd,
 	})
 }
 
@@ -377,10 +460,11 @@ const (
 var voteLimiter = NewRateLimiter(maxVotesPerMinute, time.Minute)
 
 type rateLimiter struct {
-	limit   int
-	window  time.Duration
-	mu      sync.Mutex
-	clients map[string]*rateClient
+	limit      int
+	maxEntries int
+	window     time.Duration
+	mu         sync.Mutex
+	clients    map[string]*rateClient
 }
 
 type rateClient struct {
@@ -390,9 +474,10 @@ type rateClient struct {
 
 func NewRateLimiter(limit int, window time.Duration) *rateLimiter {
 	rl := &rateLimiter{
-		limit:   limit,
-		window:  window,
-		clients: make(map[string]*rateClient),
+		limit:      limit,
+		maxEntries: 100000,
+		window:     window,
+		clients:    make(map[string]*rateClient),
 	}
 	go rl.cleanup()
 	return rl
@@ -414,7 +499,7 @@ func (rl *rateLimiter) cleanup() {
 
 func (rl *rateLimiter) Allow(key string) bool {
 	if key == "" {
-		return true
+		return false
 	}
 
 	now := time.Now()
@@ -423,6 +508,9 @@ func (rl *rateLimiter) Allow(key string) bool {
 
 	client, ok := rl.clients[key]
 	if !ok || now.After(client.resetAt) {
+		if len(rl.clients) >= rl.maxEntries {
+			return false
+		}
 		rl.clients[key] = &rateClient{count: 1, resetAt: now.Add(rl.window)}
 		return true
 	}

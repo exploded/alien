@@ -10,9 +10,7 @@ CREATE TABLE IF NOT EXISTS question (
 
 CREATE TABLE IF NOT EXISTS answer (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    question INTEGER NOT NULL DEFAULT 0,
+    question INTEGER NOT NULL DEFAULT 0 REFERENCES question(id),
     answer INTEGER NOT NULL DEFAULT 0,
-    submitter TEXT NOT NULL DEFAULT '',
-    submitdate TEXT NOT NULL DEFAULT (datetime('now')),
-    submitteragent TEXT NOT NULL DEFAULT ''
+    submitdate TEXT NOT NULL DEFAULT (datetime('now'))
 );

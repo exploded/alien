@@ -30,6 +30,7 @@ func setupTest(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	sqlDB = testDB
 	queries = db.New(testDB)
 
 	ctx := context.Background()
