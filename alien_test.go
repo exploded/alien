@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"alien/db"
 
@@ -148,7 +149,7 @@ func TestSiteRootGetRedirectsToIntro(t *testing.T) {
 }
 
 func TestRateLimiter(t *testing.T) {
-	rl := NewRateLimiter(2, 0)
+	rl := NewRateLimiter(2, time.Hour)
 
 	if !rl.Allow("ip1") {
 		t.Errorf("expected first request to be allowed")
