@@ -95,7 +95,12 @@ func main() {
 	tmplIntro = template.Must(template.ParseFiles(base, filepath.Join(path, "templates", "intro.html")))
 	tmplAbout = template.Must(template.ParseFiles(base, filepath.Join(path, "templates", "about.html")))
 
-	slog.Info("starting", "path", path, "port", 8787)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8787"
+	}
+
+	slog.Info("starting", "path", path, "port", port)
 	http.HandleFunc("/", siteroot)
 	http.HandleFunc("/about", about)
 	http.HandleFunc("/intro", intro)
@@ -107,7 +112,7 @@ func main() {
 	})
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(filepath.Join(path, "static")))))
 	server := &http.Server{
-		Addr:         ":8787",
+		Addr:         ":" + port,
 		Handler:      nil,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,

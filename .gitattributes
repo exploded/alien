@@ -1,0 +1,31 @@
+# Default: normalise line endings in the repo to LF
+* text=auto eol=lf
+
+# Shell scripts must always be LF (they break with CRLF on Linux)
+*.sh        text eol=lf
+scripts/*   text eol=lf
+
+# Go source — LF
+*.go        text eol=lf
+
+# Web assets — LF
+*.html      text eol=lf
+*.css       text eol=lf
+*.js        text eol=lf
+
+# Config / data files — LF
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.json      text eol=lf
+*.md        text eol=lf
+*.mod       text eol=lf
+*.sum       text eol=lf
+*.sql       text eol=lf
+*.txt       text eol=lf
+
+# True binaries — no line-ending conversion
+*.jpg       binary
+*.png       binary
+*.ico       binary
+*.xlsx      binary
+*.db        binary
