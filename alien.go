@@ -54,7 +54,7 @@ func main() {
 
 	ship := logship.New(logship.Options{
 		Endpoint: "https://monitor.mchugh.au/api/logs",
-		APIKey:   os.Getenv("MONITOR_API_KEY"),
+		APIKey:   os.Getenv("LOG_API_KEY"),
 		App:      "alien",
 		Level:    slog.LevelWarn,
 	})

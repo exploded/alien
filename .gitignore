@@ -1,6 +1,5 @@
 .vscode/
 .env
-alien-env
 alien
 alien.exe
 alien.db
