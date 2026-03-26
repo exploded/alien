@@ -42,6 +42,17 @@ cp -r "$DEPLOY_SRC/css/"        "$DEPLOY_DIR/"
 cp -r "$DEPLOY_SRC/images/"     "$DEPLOY_DIR/"
 cp -r "$DEPLOY_SRC/static/"     "$DEPLOY_DIR/"
 cp    "$DEPLOY_SRC/robots.txt"  "$DEPLOY_DIR/"
+
+# One-time: update DB picture column from .jpg to .webp and clean up old JPGs.
+if [ -f "$DEPLOY_SRC/updatepictures" ]; then
+    echo "[deploy] Updating picture references in database..."
+    chmod +x "$DEPLOY_SRC/updatepictures"
+    "$DEPLOY_SRC/updatepictures" "$DEPLOY_DIR/alien.db"
+    echo "[deploy] Removing old JPEG files from server..."
+    find "$DEPLOY_DIR/images" -name '*.jpg' -type f -delete
+    rm -rf "$DEPLOY_DIR/images/huge"
+fi
+
 chown -R "$SERVICE_USER:$SERVICE_GROUP" "$DEPLOY_DIR"
 
 echo "[deploy] Starting service..."

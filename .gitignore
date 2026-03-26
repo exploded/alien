@@ -6,3 +6,5 @@ alien.db
 migrate
 /convertimages
 /convertimages.exe
+/updatepictures
+/updatepictures.exe
