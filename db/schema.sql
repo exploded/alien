@@ -1,0 +1,18 @@
+CREATE TABLE IF NOT EXISTS question (
+    id INTEGER PRIMARY KEY,
+    category TEXT NOT NULL DEFAULT '',
+    question TEXT NOT NULL DEFAULT '',
+    picture TEXT NOT NULL DEFAULT '',
+    yes INTEGER NOT NULL DEFAULT 0,
+    no INTEGER NOT NULL DEFAULT 0,
+    short TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS answer (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    question INTEGER NOT NULL DEFAULT 0,
+    answer INTEGER NOT NULL DEFAULT 0,
+    submitter TEXT NOT NULL DEFAULT '',
+    submitdate TEXT NOT NULL DEFAULT (datetime('now')),
+    submitteragent TEXT NOT NULL DEFAULT ''
+);

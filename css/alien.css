@@ -93,5 +93,9 @@
 	right:0px;
 	top:10px
 	}
-	
+
+/* HTMX loading state */
+form.htmx-request button {
+	opacity: 0.5;
+	pointer-events: none;
 }

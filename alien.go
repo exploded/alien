@@ -20,11 +20,12 @@ package main
 import (
 	crand "crypto/rand"
 	"crypto/subtle"
+	"database/sql"
+	_ "embed"
 	"encoding/base64"
 	"errors"
 	"html/template"
 	"log/slog"
-	mathrand "math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -33,14 +34,23 @@ import (
 	"sync"
 	"time"
 
+	"alien/db"
+
 	"github.com/exploded/monitor/pkg/logship"
+	_ "modernc.org/sqlite"
 )
 
-var templates *template.Template
+//go:embed db/schema.sql
+var schemaSQL string
+
+var (
+	queries      *db.Queries
+	tmplQuestion *template.Template
+	tmplIntro    *template.Template
+	tmplAbout    *template.Template
+)
 
 func main() {
-
-	var datasourcename string
 
 	ship := logship.New(logship.Options{
 		Endpoint: "https://monitor.mchugh.au/api/logs",
@@ -56,12 +66,23 @@ func main() {
 	))
 	slog.SetDefault(logger)
 
-	if datasourcename = os.Getenv("DATASOURCE"); datasourcename == "" {
-		slog.Error("DATASOURCE env var is required")
+	sqlDB, err := sql.Open("sqlite", "alien.db")
+	if err != nil {
+		slog.Error("could not open database", "err", err)
+		os.Exit(1)
+	}
+	defer sqlDB.Close()
+
+	sqlDB.Exec("PRAGMA journal_mode=WAL")
+	sqlDB.Exec("PRAGMA foreign_keys=ON")
+
+	if _, err := sqlDB.Exec(schemaSQL); err != nil {
+		slog.Error("could not create schema", "err", err)
 		os.Exit(1)
 	}
 
-	InitDB(datasourcename)
+	queries = db.New(sqlDB)
+	slog.Info("database connected")
 
 	path, err := os.Getwd()
 	if err != nil {
@@ -69,19 +90,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	templates = template.Must(template.ParseGlob(filepath.Join(path, "templates", "*.html")))
+	base := filepath.Join(path, "templates", "base.html")
+	tmplQuestion = template.Must(template.ParseFiles(base, filepath.Join(path, "templates", "question.html")))
+	tmplIntro = template.Must(template.ParseFiles(base, filepath.Join(path, "templates", "intro.html")))
+	tmplAbout = template.Must(template.ParseFiles(base, filepath.Join(path, "templates", "about.html")))
 
 	slog.Info("starting", "path", path, "port", 8787)
 	http.HandleFunc("/", siteroot)
 	http.HandleFunc("/about", about)
 	http.HandleFunc("/intro", intro)
 	http.HandleFunc("/robots.txt", robots)
-	http.Handle("/css/", http.StripPrefix("/css/", http.FileServer(http.Dir(path+"/css"))))
-	http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir(path+"/images"))))
+	http.Handle("/css/", http.StripPrefix("/css/", http.FileServer(http.Dir(filepath.Join(path, "css")))))
+	http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir(filepath.Join(path, "images")))))
 	http.HandleFunc("/favicon.png", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, filepath.Join(path, "images", "favicon.png"))
 	})
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(path+"/static"))))
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(filepath.Join(path, "static")))))
 	server := &http.Server{
 		Addr:         ":8787",
 		Handler:      nil,
@@ -99,31 +123,31 @@ func about(w http.ResponseWriter, r *http.Request) {
 
 	type AboutParams struct {
 		Responses int64
-		Question  string
 	}
 
 	var P AboutParams
 
-	err := db.QueryRowContext(r.Context(), "SELECT count(*) FROM answer;").Scan(&P.Responses)
+	count, err := queries.CountAnswers(r.Context())
 	if err != nil {
 		slog.Error("about: query failed", "err", err)
 	}
+	P.Responses = count
 
-	w.Header().Set("cache-control", "private, max-age=0, no-cache")
-	if err := templates.ExecuteTemplate(w, "about.html", P); err != nil {
+	w.Header().Set("Cache-Control", "private, max-age=0, no-cache")
+	if err := tmplAbout.ExecuteTemplate(w, "base", P); err != nil {
 		slog.Error("about: template failed", "err", err)
 	}
 }
 
 func intro(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("cache-control", "public, max-age=3600")
-	if err := templates.ExecuteTemplate(w, "intro.html", nil); err != nil {
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	if err := tmplIntro.ExecuteTemplate(w, "base", nil); err != nil {
 		slog.Error("intro: template failed", "err", err)
 	}
 }
 
 func robots(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("cache-control", "public, max-age=3600")
+	w.Header().Set("Cache-Control", "public, max-age=3600")
 	http.ServeFile(w, r, "robots.txt")
 }
 
@@ -170,7 +194,13 @@ func siteroot(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if idold == 0 {
-			P.Id = mathrand.Int63n(58) + 1
+			rq, err := queries.GetRandomQuestion(r.Context())
+			if err != nil {
+				slog.Error("random question failed", "err", err)
+				http.Error(w, "Unable to load question", http.StatusInternalServerError)
+				return
+			}
+			P.Id = rq.ID
 		} else {
 			P.Id = idold
 		}
@@ -208,35 +238,39 @@ func siteroot(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		answerBit := 0
+		answerBit := int64(0)
 		if answer == "yes" {
 			answerBit = 1
-			_, err = db.ExecContext(r.Context(), "UPDATE question SET yes = yes + 1 WHERE id=?", idold)
+			err = queries.IncrementYes(r.Context(), idold)
 		} else {
-			_, err = db.ExecContext(r.Context(), "UPDATE question SET no = no + 1 WHERE id=?", idold)
+			err = queries.IncrementNo(r.Context(), idold)
 		}
 		if err != nil {
 			slog.Error("vote update failed", "err", err, "question", idold)
 		}
 
-		_, err = db.ExecContext(r.Context(), "INSERT INTO answer (question, answer, submitter, submitteragent) VALUES(?, ?, ?, ?);", idold, answerBit, r.RemoteAddr, r.Header.Get("User-Agent"))
+		err = queries.InsertAnswer(r.Context(), db.InsertAnswerParams{
+			Question:       idold,
+			Answer:         answerBit,
+			Submitter:      r.RemoteAddr,
+			Submitteragent: r.Header.Get("User-Agent"),
+		})
 		if err != nil {
 			slog.Error("vote insert failed", "err", err, "question", idold)
 		}
 
-		var Yes, No int64
-
-		err = db.QueryRowContext(r.Context(), "SELECT short, yes, no FROM question WHERE id = ?", idold).Scan(&P.Previous, &Yes, &No)
+		stats, err := queries.GetQuestionStats(r.Context(), idold)
 		if err != nil {
 			slog.Error("select stats failed", "err", err, "question", idold)
-		}
-
-		if Yes+No > 0 {
-			P.PreviousValue = int64(100. * (float64(Yes) / float64(Yes+No)))
 		} else {
-			P.PreviousValue = 0
+			P.Previous = stats.Short
+			yes := stats.Yes
+			no := stats.No
+			if yes+no > 0 {
+				P.PreviousValue = int64(100. * (float64(yes) / float64(yes+no)))
+			}
+			P.PreviousStats = "Yes:" + strconv.FormatInt(yes, 10) + " No:" + strconv.FormatInt(no, 10) + " Total votes:" + strconv.FormatInt(yes+no, 10)
 		}
-		P.PreviousStats = "Yes:" + strconv.FormatInt(Yes, 10) + " No:" + strconv.FormatInt(No, 10) + " Total votes:" + strconv.FormatInt(Yes+No, 10)
 
 		P.Id = idold + 1
 		if P.Id == 60 {
@@ -248,17 +282,21 @@ func siteroot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = db.QueryRowContext(r.Context(), "SELECT category, question, picture, short FROM question WHERE id = ?", P.Id).Scan(&P.Category, &P.Question, &P.Picture, &P.Short)
+	question, err := queries.GetQuestion(r.Context(), P.Id)
 	if err != nil {
 		slog.Error("select question failed", "err", err, "question", P.Id)
 		http.Error(w, "Unable to load question", http.StatusInternalServerError)
 		return
 	}
+	P.Category = question.Category
+	P.Question = question.Question
+	P.Picture = question.Picture
+	P.Short = question.Short
 
-	w.Header().Set("cache-control", "private, max-age=0, no-cache")
+	w.Header().Set("Cache-Control", "private, max-age=0, no-cache")
 
-	if err := templates.ExecuteTemplate(w, "index.html", P); err != nil {
-		slog.Error("index: template failed", "err", err)
+	if err := tmplQuestion.ExecuteTemplate(w, "base", P); err != nil {
+		slog.Error("question: template failed", "err", err)
 	}
 
 }

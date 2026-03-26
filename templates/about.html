@@ -1,27 +1,11 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="utf-8">
-    <title>Aliens Like Us</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
-    <link rel="stylesheet" href="css/skeleton.css">
-    <link rel="stylesheet" href="css/alien.css">
-    <link rel="icon" type="image/png" href="images/favicon.png">
-</head>
-
-<body>
+{{define "content"}}
     <div id="bg">
-        <img src="images/whiteboard-849811.jpg"
-            srcset="images/mobile/whiteboard-849811.jpg 780w, images/whiteboard-849811.jpg 1920w, images/huge/whiteboard-849811.jpg 2560w"
-            alt="Planet">
+        <img src="/images/whiteboard-849811.jpg" srcset="/images/mobile/whiteboard-849811.jpg 780w, /images/whiteboard-849811.jpg 1920w, /images/huge/whiteboard-849811.jpg 2560w" alt="About">
     </div>
     <a href="javascript:history.back()">
-        <img class="about" src="images/about50.png" alt="Intro">
+        <img class="about" src="/images/about50.png" alt="Back">
     </a>
     <div class="container">
-
         <div class="row">
             <div class="two.columns column" style="margin-top: 25%">
                 <h2>About</h2>
@@ -42,6 +26,4 @@
             </div>
         </div>
     </div>
-</body>
-
-</html>
+{{end}}

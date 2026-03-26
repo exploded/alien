@@ -1,33 +1,18 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="utf-8">
-    <title>Aliens Like Us</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
-    <link rel="stylesheet" href="css/skeleton.css">
-    <link rel="stylesheet" href="css/alien.css">
-    <link rel="icon" type="image/png" href="images/favicon.png">
-</head>
-
-<body>
+{{define "content"}}
     <div id="bg">
-        <img src="images/planet.jpg"
-            srcset="images/mobile/planet.jpg 780w, images/planet.jpg 1920w, images/huge/planet.jpg 2560w" alt="Planet">
+        <img src="/images/planet.jpg" srcset="/images/mobile/planet.jpg 780w, /images/planet.jpg 1920w, /images/huge/planet.jpg 2560w" alt="Planet">
     </div>
-    <a href="about">
-        <img class="about" src="images/about50.png" alt="About">
+    <a href="/about">
+        <img class="about" src="/images/about50.png" alt="About">
     </a>
     <div class="container">
-
         <div class="row">
             <div class="two.columns column" style="margin-top: 25%">
                 <h2>What are aliens really like?</h2>
                 <br>
-                <h4>Imagine you have been sent to a planet in a far away galaxy. </h4>
+                <h4>Imagine you have been sent to a planet in a far away galaxy.</h4>
                 <br>
-                <h4>On this planet there is intelligent life. </h4>
+                <h4>On this planet there is intelligent life.</h4>
                 <br>
                 <h4>What do you think they look like? What is their society like?</h4>
                 <br>
@@ -39,6 +24,4 @@
             </div>
         </div>
     </div>
-</body>
-
-</html>
+{{end}}
