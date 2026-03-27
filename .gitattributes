@@ -23,6 +23,9 @@ scripts/*   text eol=lf
 *.sql       text eol=lf
 *.txt       text eol=lf
 
+# Windows batch files — CRLF
+*.bat       text eol=crlf
+
 # True binaries — no line-ending conversion
 *.jpg       binary
 *.png       binary

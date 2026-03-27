@@ -3,8 +3,7 @@ module alien
 go 1.26.0
 
 require (
-	github.com/exploded/monitor v0.0.0-20260326073543-512b1dacfb7d
-	github.com/go-sql-driver/mysql v1.7.1
+	github.com/exploded/monitor v0.0.0-20260327092115-bdf676b3f2e1
 	modernc.org/sqlite v1.47.0
 )
 

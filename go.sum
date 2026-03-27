@@ -1,9 +1,7 @@
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
 github.com/dustin/go-humanize v1.0.1/go.mod h1:Mu1zIs6XwVuF/gI1OepvI0qD18qycQx+mFykh5fBlto=
-github.com/exploded/monitor v0.0.0-20260326073543-512b1dacfb7d h1:yk6R2wHbSlQIaWxVGp7hTxCkxOIkzUtQeV+J18MFBcA=
-github.com/exploded/monitor v0.0.0-20260326073543-512b1dacfb7d/go.mod h1:WFBw9Z+xIfAt9OWoNfOQ5DMY9tfStvFvKuv2j9wFw2A=
-github.com/go-sql-driver/mysql v1.7.1 h1:lUIinVbN1DY0xBg0eMOzmmtGoHwWBbvnWubQUrtU8EI=
-github.com/go-sql-driver/mysql v1.7.1/go.mod h1:OXbVy3sEdcQ2Doequ6Z5BW6fXNQTmx+9S1MCJN5yJMI=
+github.com/exploded/monitor v0.0.0-20260327092115-bdf676b3f2e1 h1:+zSOqgglrg6gjhtj9Yq81ALmDaTOptTRC3GvK7JBVSM=
+github.com/exploded/monitor v0.0.0-20260327092115-bdf676b3f2e1/go.mod h1:nFX/U062mRdb+mAjtHkyXzpEGhYzxRlNbBYIUF8vYFU=
 github.com/google/pprof v0.0.0-20250317173921-a4b03ec1a45e h1:ijClszYn+mADRFY17kjQEVQ1XRhq2/JR1M3sGqeJoxs=
 github.com/google/pprof v0.0.0-20250317173921-a4b03ec1a45e/go.mod h1:boTsfXsheKC2y+lKOCMpSfarhxDeIzfZG1jqGcPl3cA=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=

@@ -147,7 +147,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:         ":" + port,
-		Handler:      securityHeaders(mux),
+		Handler:      requestLogger(securityHeaders(mux)),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -179,10 +179,30 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'")
 		if isProd {
 			w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 		}
 		next.ServeHTTP(w, r)
+	})
+}
+
+type statusWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (sw *statusWriter) WriteHeader(code int) {
+	sw.status = code
+	sw.ResponseWriter.WriteHeader(code)
+}
+
+func requestLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(sw, r)
+		slog.Info("request", "method", r.Method, "path", r.URL.Path, "status", sw.status, "duration_ms", time.Since(start).Milliseconds())
 	})
 }
 
