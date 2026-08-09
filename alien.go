@@ -139,6 +139,7 @@ func main() {
 	mux.HandleFunc("/about", about)
 	mux.HandleFunc("/intro", intro)
 	mux.HandleFunc("/robots.txt", robots)
+	mux.HandleFunc("/health", health)
 	mux.Handle("/css/", http.StripPrefix("/css/", noDirListing(http.FileServer(http.Dir(filepath.Join(path, "css"))))))
 	mux.Handle("/images/", http.StripPrefix("/images/", noDirListing(http.FileServer(http.Dir(filepath.Join(path, "images"))))))
 	mux.HandleFunc("/favicon.png", func(w http.ResponseWriter, r *http.Request) {
@@ -247,6 +248,20 @@ func intro(w http.ResponseWriter, r *http.Request) {
 func robots(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	http.ServeFile(w, r, "robots.txt")
+}
+
+// health is the uptime-monitor endpoint. It pings the database as well as
+// answering, so a live process sitting on a broken DB reads as down rather than
+// up -- every page here needs the DB, so a process that cannot reach it is not
+// actually serving.
+func health(w http.ResponseWriter, r *http.Request) {
+	if err := sqlDB.PingContext(r.Context()); err != nil {
+		http.Error(w, "db unhealthy", http.StatusServiceUnavailable)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Write([]byte("ok"))
 }
 
 func siteroot(w http.ResponseWriter, r *http.Request) {
