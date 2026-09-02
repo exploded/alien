@@ -76,7 +76,7 @@ Go `html/template` with base layout pattern:
 - `templates/intro.html` — landing page.
 - `templates/about.html` — about page with response count.
 
-HTMX (`hx-boost="true"` on body) provides smooth page transitions without full reloads.
+HTMX (`hx-boost:inherited="true"` on body) provides smooth page transitions without full reloads.
 
 ### Security
 
@@ -87,7 +87,7 @@ HTMX (`hx-boost="true"` on body) provides smooth page transitions without full r
 
 - `css/` — `skeleton.css` (CSS framework), `alien.css` (custom styles).
 - `images/` — question background images with responsive variants in `images/mobile/` and `images/huge/`.
-- `static/` — `htmx.min.js` (HTMX 2.0.4).
+- `static/` — `htmx.min.js` (HTMX 4.0.0).
 
 ## Environment
 

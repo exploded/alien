@@ -3,7 +3,7 @@
 .env
 alien
 alien.exe
-alien.db
+*.db
 *.db-wal
 *.db-shm
 migrate
